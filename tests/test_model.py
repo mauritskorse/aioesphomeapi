@@ -4,6 +4,7 @@ from typing import List, Optional
 import pytest
 
 from aioesphomeapi.api_pb2 import (
+    AlarmControlPanelStateResponse,
     BinarySensorStateResponse,
     ClimateStateResponse,
     CoverStateResponse,
@@ -12,6 +13,7 @@ from aioesphomeapi.api_pb2 import (
     HomeassistantServiceMap,
     HomeassistantServiceResponse,
     LightStateResponse,
+    ListEntitiesAlarmControlPanelResponse,
     ListEntitiesBinarySensorResponse,
     ListEntitiesButtonResponse,
     ListEntitiesClimateResponse,
@@ -35,14 +37,19 @@ from aioesphomeapi.api_pb2 import (
     ServiceArgType,
     SwitchStateResponse,
     TextSensorStateResponse,
+    TextStateResponse,
 )
 from aioesphomeapi.model import (
+    _TYPE_TO_NAME,
+    AlarmControlPanelEntityState,
+    AlarmControlPanelInfo,
     APIIntEnum,
     APIModelBase,
     APIVersion,
     BinarySensorInfo,
     BinarySensorState,
     ButtonInfo,
+    CameraInfo,
     ClimateInfo,
     ClimatePreset,
     ClimateState,
@@ -65,13 +72,17 @@ from aioesphomeapi.model import (
     SelectState,
     SensorInfo,
     SensorState,
+    SirenInfo,
     SwitchInfo,
     SwitchState,
+    TextInfo,
     TextSensorInfo,
     TextSensorState,
+    TextState,
     UserService,
     UserServiceArg,
     UserServiceArgType,
+    build_unique_id,
     converter_field,
 )
 
@@ -226,6 +237,9 @@ def test_api_version_ord():
         (LockEntityState, LockStateResponse),
         (MediaPlayerInfo, ListEntitiesMediaPlayerResponse),
         (MediaPlayerEntityState, MediaPlayerStateResponse),
+        (AlarmControlPanelInfo, ListEntitiesAlarmControlPanelResponse),
+        (AlarmControlPanelEntityState, AlarmControlPanelStateResponse),
+        (TextState, TextStateResponse),
     ],
 )
 def test_basic_pb_conversions(model, pb):
@@ -315,3 +329,30 @@ def test_user_service_conversion():
     assert UserService.from_dict({"args": [{"name": "arg", "type": 1}]}) == UserService(
         args=[UserServiceArg(name="arg", type=UserServiceArgType.INT)]
     )
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        BinarySensorInfo,
+        ButtonInfo,
+        CoverInfo,
+        FanInfo,
+        LightInfo,
+        NumberInfo,
+        SelectInfo,
+        SensorInfo,
+        SirenInfo,
+        SwitchInfo,
+        TextSensorInfo,
+        CameraInfo,
+        ClimateInfo,
+        LockInfo,
+        MediaPlayerInfo,
+        AlarmControlPanelInfo,
+        TextInfo,
+    ],
+)
+def test_build_unique_id(model):
+    obj = model(object_id="id")
+    assert build_unique_id("mac", obj) == f"mac-{_TYPE_TO_NAME[type(obj)]}-id"

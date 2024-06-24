@@ -1,9 +1,8 @@
-from sys import version
-
 import pytest
-from mock import AsyncMock, MagicMock, call, patch
+from mock import AsyncMock, MagicMock, patch
 
 from aioesphomeapi.api_pb2 import (
+    AlarmControlPanelCommandRequest,
     BinarySensorStateResponse,
     CameraImageRequest,
     CameraImageResponse,
@@ -21,9 +20,11 @@ from aioesphomeapi.api_pb2 import (
     NumberCommandRequest,
     SelectCommandRequest,
     SwitchCommandRequest,
+    TextCommandRequest,
 )
 from aioesphomeapi.client import APIClient
 from aioesphomeapi.model import (
+    AlarmControlPanelCommand,
     APIVersion,
     BinarySensorInfo,
     BinarySensorState,
@@ -52,7 +53,6 @@ def auth_client():
     )
     with patch.object(client, "_connection") as conn:
         conn.is_connected = True
-        conn.is_authenticated = True
         yield client
 
 
@@ -74,7 +74,7 @@ def patch_response_complex(client: APIClient, messages):
 def patch_response_callback(client: APIClient):
     on_message = None
 
-    async def patched(req, callback, msg_types):
+    def patched(req, callback, msg_types):
         nonlocal on_message
         on_message = callback
 
@@ -535,3 +535,43 @@ async def test_request_image_stream(auth_client):
 
     await auth_client.request_image_stream()
     send.assert_called_once_with(CameraImageRequest(single=False, stream=True))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cmd, req",
+    [
+        (
+            dict(key=1, command=AlarmControlPanelCommand.ARM_AWAY),
+            dict(key=1, command=AlarmControlPanelCommand.ARM_AWAY, code=None),
+        ),
+        (
+            dict(key=1, command=AlarmControlPanelCommand.ARM_HOME),
+            dict(key=1, command=AlarmControlPanelCommand.ARM_HOME, code=None),
+        ),
+        (
+            dict(key=1, command=AlarmControlPanelCommand.DISARM, code="1234"),
+            dict(key=1, command=AlarmControlPanelCommand.DISARM, code="1234"),
+        ),
+    ],
+)
+async def test_alarm_panel_command(auth_client, cmd, req):
+    send = patch_send(auth_client)
+
+    await auth_client.alarm_control_panel_command(**cmd)
+    send.assert_called_once_with(AlarmControlPanelCommandRequest(**req))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cmd, req",
+    [
+        (dict(key=1, state="hello world"), dict(key=1, state="hello world")),
+        (dict(key=1, state="goodbye"), dict(key=1, state="goodbye")),
+    ],
+)
+async def test_text_command(auth_client, cmd, req):
+    send = patch_send(auth_client)
+
+    await auth_client.text_command(**cmd)
+    send.assert_called_once_with(TextCommandRequest(**req))
